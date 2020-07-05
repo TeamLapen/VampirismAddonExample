@@ -2,61 +2,60 @@ package de.teamlapen.vampirismaddonexample;
 
 import de.teamlapen.vampirism.api.VReference;
 import de.teamlapen.vampirism.api.VampirismAPI;
-import de.teamlapen.vampirism.entity.ai.*;
-import de.teamlapen.vampirism.entity.hunter.EntityHunterBase;
-import de.teamlapen.vampirism.entity.vampire.EntityVampireBase;
-import net.minecraft.entity.EntityCreature;
+import de.teamlapen.vampirism.entity.goals.*;
+import de.teamlapen.vampirism.entity.hunter.HunterBaseEntity;
+import de.teamlapen.vampirism.entity.vampire.VampireBaseEntity;
+import net.minecraft.entity.CreatureEntity;
+import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SharedMonsterAttributes;
-import net.minecraft.entity.ai.*;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.pathfinding.PathNavigateGround;
-import net.minecraft.world.EnumDifficulty;
+import net.minecraft.entity.ai.goal.*;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.pathfinding.GroundPathNavigator;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.World;
 
 /**
  * Just a vampire entity for testing/demonstration
  */
-public class EntityStrongVampire extends EntityVampireBase {
-    public EntityStrongVampire(World world) {
-        super(world, true);
+public class EntityStrongVampire extends VampireBaseEntity {
+    public EntityStrongVampire(EntityType<EntityStrongVampire> entityType, World world) {
+        super(entityType, world, true);
         hasArms = true;
 
-        this.setSize(0.6F, 1.8F);
+    }
 
+
+    @Override
+    protected void registerAttributes() {
+        super.registerAttributes();
+        this.getAttribute(SharedMonsterAttributes.MAX_HEALTH).setBaseValue(100);
+        this.getAttribute(SharedMonsterAttributes.ATTACK_DAMAGE).setBaseValue(5);
+        this.getAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.3);
     }
 
     @Override
-    protected void applyEntityAttributes() {
-        super.applyEntityAttributes();
-        this.getEntityAttribute(SharedMonsterAttributes.MAX_HEALTH).setBaseValue(100);
-        this.getEntityAttribute(SharedMonsterAttributes.ATTACK_DAMAGE).setBaseValue(5);
-        this.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED).setBaseValue(0.3);
-    }
+    protected void registerGoals() {
+        super.registerGoals();
 
-    @Override
-    protected void initEntityAI() {
-        super.initEntityAI();
-        if (getEntityWorld().getDifficulty() == EnumDifficulty.HARD) {
-            //Only break doors on hard difficulty
-            this.tasks.addTask(1, new EntityAIBreakDoor(this));
-            ((PathNavigateGround) this.getNavigator()).setBreakDoors(true);
-        }
-        this.tasks.addTask(2, new EntityAIAvoidEntity<>(this, EntityCreature.class, VampirismAPI.factionRegistry().getPredicate(getFaction(), false, true, false, false, VReference.HUNTER_FACTION), 10, 1.0, 1.1));
-        this.tasks.addTask(2, new VampireAIRestrictSun(this));
-        this.tasks.addTask(3, new VampireAIFleeSun(this, 0.9, false));
-        this.tasks.addTask(3, new VampireAIFleeGarlic(this, 0.9, false));
-        this.tasks.addTask(4, new EntityAIAttackMeleeNoSun(this, 1.0, false));
-        this.tasks.addTask(5, new VampireAIBiteNearbyEntity(this));
-        this.tasks.addTask(7, new VampireAIMoveToBiteable(this, 0.75));
-        this.tasks.addTask(8, new EntityAIMoveThroughVillageCustom(this, 0.6, true, 600));
-        this.tasks.addTask(9, new EntityAIWander(this, 0.7));
-        this.tasks.addTask(10, new EntityAIWatchClosest(this, EntityPlayer.class, 20F, 0.9F));
-        this.tasks.addTask(11, new EntityAIWatchClosest(this, EntityHunterBase.class, 17F));
-        this.tasks.addTask(12, new EntityAILookIdle(this));
+        this.goalSelector.addGoal(1, new BreakDoorGoal(this, difficulty -> difficulty == Difficulty.HARD));
+        ((GroundPathNavigator) this.getNavigator()).setBreakDoors(true);
 
-        this.targetTasks.addTask(3, new EntityAIHurtByTarget(this, false));
-        this.targetTasks.addTask(4, new EntityAINearestAttackableTarget<>(this, EntityPlayer.class, 5, true, false, VampirismAPI.factionRegistry().getPredicate(getFaction(), true, false, true, false, null)));
-        this.targetTasks.addTask(5, new EntityAINearestAttackableTarget<>(this, EntityCreature.class, 5, true, false, VampirismAPI.factionRegistry().getPredicate(getFaction(), false, true, false, false, null)));//TODO maybe make them not attack hunters, although it looks interesting
+        this.goalSelector.addGoal(2, new AvoidEntityGoal<>(this, CreatureEntity.class, 10.0F, 1.0D, 1.1D, VampirismAPI.factionRegistry().getPredicate(this.getFaction(), false, true, false, false, VReference.HUNTER_FACTION)));
+        this.goalSelector.addGoal(2, new RestrictSunVampireGoal<>(this));
+        this.goalSelector.addGoal(3, new FleeSunVampireGoal<>(this, 0.9, false));
+        this.goalSelector.addGoal(3, new FleeGarlicVampireGoal(this, 0.9, false));
+        this.goalSelector.addGoal(4, new AttackMeleeNoSunGoal(this, 1.0, false));
+        this.goalSelector.addGoal(5, new BiteNearbyEntityVampireGoal<>(this));
+        this.goalSelector.addGoal(7, new MoveToBiteableVampireGoal<>(this, 0.75));
+        this.goalSelector.addGoal(8, new MoveThroughVillageGoal(this, 0.6D, true, 600, () -> false));
+        this.goalSelector.addGoal(9, new RandomWalkingGoal(this, 0.7D));
+        this.goalSelector.addGoal(10, new LookAtClosestVisibleGoal(this, PlayerEntity.class, 20.0F, 0.6F));
+        this.goalSelector.addGoal(11, new LookAtGoal(this, HunterBaseEntity.class, 17.0F));
+        this.goalSelector.addGoal(12, new LookRandomlyGoal(this));
+
+        this.targetSelector.addGoal(3, new HurtByTargetGoal(this));
+        this.targetSelector.addGoal(4, new NearestAttackableTargetGoal<>(this, PlayerEntity.class, 5, true, false, VampirismAPI.factionRegistry().getPredicate(getFaction(), true, false, true, false, null)));
+        this.targetSelector.addGoal(5, new NearestAttackableTargetGoal<>(this, CreatureEntity.class, 5, true, false, VampirismAPI.factionRegistry().getPredicate(getFaction(), false, true, false, false, null)));//TODO maybe make them not attack hunters, although it looks interesting
 
     }
 }
