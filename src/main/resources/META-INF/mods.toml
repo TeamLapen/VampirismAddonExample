@@ -1,5 +1,6 @@
 modLoader="javafml"
-loaderVersion="[27,)"
+loaderVersion="[32,)"
+license = "MIT"
 
 [[mods]]
     modId="vampirism-addon-example"
